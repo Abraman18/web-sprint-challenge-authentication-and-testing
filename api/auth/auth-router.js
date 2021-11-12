@@ -1,7 +1,24 @@
-const router = require('express').Router();
+const router = require('express').Router()
+const Jokes = require('../jokes/jokes-model')
+const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
+const {
+  usernameTaken,
+  checkPayload,
+  checkUsernameExists
+} = require('../middleware/auth-middleware')
 
-router.post('/register', (req, res) => {
-  res.end('implement register, please!');
+router.post('/register', checkPayload, usernameTaken, async (req, res) => {
+  let user = req.body
+  const hash = bcrypt.hashSync(user.password, 6)
+  user.password = hash
+  await Jokes.add(user)
+    .then(userMade => {
+      res.status(201).json(userMade)
+    })
+    .catch(error => {
+      res.status(500).json({ message: error.message })
+    })
   /*
     IMPLEMENT
     You are welcome to build additional middlewares to help with the endpoint's functionality.
@@ -29,8 +46,20 @@ router.post('/register', (req, res) => {
   */
 });
 
-router.post('/login', (req, res) => {
-  res.end('implement login, please!');
+router.post('/login', checkPayload, checkUsernameExists, (req, res) => {
+  let { username, password } = req.body
+  Jokes.findBy({ username })
+    .first()
+    .then(user => {
+      if (user && bcrypt.compareSync(password, user.password)) {
+        res.status(200).json({message:'Welcome'})
+      } else {
+        res.status(401).json({ message: 'Invalid Credentials' });
+      }
+    })
+    .catch(error => {
+      res.status(500).json(error);
+    })
   /*
     IMPLEMENT
     You are welcome to build additional middlewares to help with the endpoint's functionality.
@@ -54,6 +83,6 @@ router.post('/login', (req, res) => {
     4- On FAILED login due to `username` not existing in the db, or `password` being incorrect,
       the response body should include a string exactly as follows: "invalid credentials".
   */
-});
+})
 
-module.exports = router;
+module.exports = router
